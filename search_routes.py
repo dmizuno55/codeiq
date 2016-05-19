@@ -1,43 +1,85 @@
 from enum import Enum
 
-class Path:
-    Direction = Enum('Direction', 'x y')
-    
-    def __init__(self, x, y, direction):
+class Point:
+    points = [[]]
+    def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.direction = direction
-        
-    def can_go_to(self, x, y, direction):
-        if self.direction == direction:
-            return False
-        if self.direction == Path.Direction.x:
-            if self.x != x:
-                return False
-        if self.direction == Path.Direction.y:
-            if self.y != y:
-                return False
-        return True
-        
-    def go_to_x(self, x):
-        if not self.can_go_to(x, self.y, Path.Direction.x):
-            raise Exception('invalid path')
-        return Path(x, self.y, Path.Direction.x)
-        
-    def go_to_y(self, y):
-        if not self.can_go_to(self.x, y, Path.Direction.y):
-            raise Exception('invalid path')
-        return Path(self.x, y, Path.Direction.y)
-    
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
+
+    @classmethod
+    def get_point(cls, x, y):
+        if not cls.points[x][y]:
+            cls.points[x][y] = Point(x, y)
+        return cls.points[x][y]
 
     def __repr__(self):
-        return self.__str__()
+        return '{{x: {0}, y: {1} }}'.format(self.x, self.y)
 
-    def __str__(self):
-        return '{{x: {0}, y: {1}, d: {2}}}'.format(self.x, self.y, self.direction.name)
+class Route:
+    def __init__(point):
+        self.pathes= list(point)
+        self.corner_count = 0
 
+    @staticmethod
+    def calculate_path(p1, p2):
+        if p1.x == p2.x:
+            return (p1.x, p1.y + p2.y)
+        else:
+            return (p1.x + p2.x, p1.y)
+
+    def is_already_passed(self, expected_path)
+        before = Nane
+        for current in self.pathes:
+            if before:
+                path = calculate_path(before, current)
+                if path == expected_path:
+                    return True
+
+            before = current
+
+        return False
+
+
+    def can_go_to(self, point):
+        last_point = self.pathes[-1]
+
+        if last_point == point:
+            return False
+
+        if last_point.x != point.x and last_point.y != point.y:
+            return False
+
+        expected_path = calculate_path(last_point, point)
+
+        if self.is_already_passed(expected_path):
+            return False
+
+        return True
+
+    def is_corner(self, point):
+        before_2, before_1 = self.pathes[:-2]
+
+    def go_to_x(self, x):
+        last_point = self.pathes[-1]
+        next_point = Point.get_point(x, last_point.y)
+        if not self.can_go_to(next_point):
+            raise Exception('can not go to')
+
+        self.pathes.append(next_point)
+
+    def go_to_y(self, y):
+        last_point = self.pathes[-1]
+        next_point = Point.get_point(last_paint.x, y)
+        if not self.can_go_to(next_point):
+            raise Exception('can not go to')
+
+        self.pathes.append(next_point)
+
+    def go_back(self):
+        self.pathes.pop()
+
+    def __repr__(self):
+        return str(self.pathes)
 
 def search_next_pathes(base, size_x, size_y, history):
     pathes = []
