@@ -28,7 +28,7 @@ class Route:
             return (p1.x + p2.x, p1.y)
 
     def is_already_passed(self, expected_path)
-        before = Nane
+        before = None
         for current in self.pathes:
             if before:
                 path = calculate_path(before, current)
@@ -57,13 +57,20 @@ class Route:
         return True
 
     def is_corner(self, point):
-        before_2, before_1 = self.pathes[:-2]
+        b1, b2 = self.pathes[-2:]
+        if b1.x == b2.x:
+            return b2.x != point.x
+        else:
+            return b2.y != point.y
 
     def go_to_x(self, x):
         last_point = self.pathes[-1]
         next_point = Point.get_point(x, last_point.y)
         if not self.can_go_to(next_point):
             raise Exception('can not go to')
+
+        if self.is_corner(next_point):
+            self.corner_count = self.corner_count + 1
 
         self.pathes.append(next_point)
 
@@ -73,10 +80,15 @@ class Route:
         if not self.can_go_to(next_point):
             raise Exception('can not go to')
 
+        if self.is_corner(next_point):
+            self.corner_count = self.corner_count + 1
+
         self.pathes.append(next_point)
 
     def go_back(self):
-        self.pathes.pop()
+        last_point = self.pathes.pop()
+        if self.is_corner(last_point):
+            self.corner_count = self.corner_count - 1
 
     def __repr__(self):
         return str(self.pathes)
@@ -124,7 +136,7 @@ def can_pass_through(path, history):
         return False
     return True
 
-def search_routes(base, size_x, size_y, count):
+def search_routes(point, size_x, size_y, count):
     goals = [
             Path(size_x - 1, size_y - 1, Path.Direction.x),
             Path(size_x - 1, size_y - 1, Path.Direction.y)
