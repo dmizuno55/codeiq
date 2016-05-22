@@ -31,22 +31,34 @@ class Track:
         self.points= []
         self.corner_count = 0
 
-    def is_already_passed(self, target_point):
-        if not target_point in self.points:
-            return False
+    @staticmethod
+    def get_nearby_before_after(points, target_index):
+        before = None
+        if target_index > 0:
+            before = points[target_index - 1]
 
+        after = None
+        if target_index < len(points) - 1:
+            after = points[target_index + 1]
+
+        return before, after
+
+    def is_already_passed(self, target_point):
         last_point = self.points[-1]
 
-        before = None
-        for current in self.points:
-            if before:
-                if last_point == before and target_point == current:
-                    return True
+        points = self.points
+        while target_point in points:
+            target_index = points.index(target_point)
 
-                if target_point == before and last_point == current:
-                    return True
+            before, after = Track.get_nearby_before_after(points, target_index)
+            
+            if before == last_point:
+                return True
 
-            before = current
+            if after == last_point:
+                return True
+
+            points = points[target_index + 1:]
 
         return False
 
