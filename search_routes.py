@@ -1,4 +1,5 @@
 import pprint
+from multiprocessing import Process, Queue
 
 pp = pprint.PrettyPrinter(indent=2, width=100)
 
@@ -68,7 +69,8 @@ class Track:
         if len(self.points) < 2:
             return False
 
-        b1, b2 = self.points[-2:]
+        b1 = self.points[-1]
+        b2 = self.points[-2]
         if b1.x == b2.x:
             return b2.x != point.x
         else:
@@ -95,7 +97,7 @@ class Track:
 
     def clone(self):
         clone = Track()
-        clone.points = list(self.points)
+        clone.points = self.points[:]
         clone.corner_count = self.corner_count
 
         return clone
@@ -114,17 +116,22 @@ class Explorer:
 
     def get_around_points(self, point):
         points = []
-        if point.x + 1 < self.x:
-            points.append(Point.get_point(point.x + 1, point.y))
+        over_x = point.x + 1
+        under_x = point.x - 1
+        over_y = point.y + 1
+        under_y = point.y - 1
 
-        if point.y + 1 < self.y:
-            points.append(Point.get_point(point.x, point.y + 1))
+        if over_x < self.x:
+            points.append(Point.get_point(over_x, point.y))
 
-        if point.x - 1 >= 0:
-            points.append(Point.get_point(point.x - 1, point.y))
+        if over_y < self.y:
+            points.append(Point.get_point(point.x, over_y))
 
-        if point.y - 1 >= 0:
-            points.append(Point.get_point(point.x, point.y - 1))
+        if under_x >= 0:
+            points.append(Point.get_point(under_x, point.y))
+
+        if under_y >= 0:
+            points.append(Point.get_point(point.x, under_y))
 
         return points
 
@@ -256,32 +263,44 @@ def explore(explorer, count):
             while is_dead_end(explorer):
                 explorer.back()
 
+    return explorer
+
 def fork(explorer, depth):
     child_explorers = []
     for point in explorer.get_available_points()[:]:
         child = explorer.fork()
-        explore(child, count)
         child_explorers.append(child)
 
-    if depth == 1:
+    if depth <= 1:
        return child_explorers
 
+    result = []
     for child in child_explorers:
-       child_explorers.extend(fork(child, depth - 1))
+        result.extend(fork(child, depth - 1))
 
-    return child_explorers
+    return result
+
+def task(queue, explorer, count):
+    queue.put(explore(explorer, count))
 
 def search_routes(size_x, size_y, count):
     explorer = Explorer(size_x, size_y)
 
     explorer.go(Point.get_point(0, 0))
 
-    child_explorers = fork(explorer, 10)
+    explorers = [explorer]
+    explorers.extend(fork(explorer, 3))
 
-    explore(explorer, count)
+    queue = Queue()
+    processes = [Process(group=None, target=task, args=(queue, ex, count)) for ex in explorers]
 
-    result = len(explorer.snapshots)
-    for ex in child_explorers:
+    for process in processes:
+        process.start()
+
+    result = 0
+    for process in processes:
+        process.join()
+        ex = queue.get()
         result = result + len(ex.snapshots)
 
     print(result)
