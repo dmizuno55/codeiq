@@ -1,5 +1,5 @@
 import pprint
-from multiprocessing import Process, Queue
+import threading
 
 pp = pprint.PrettyPrinter(indent=2, width=100)
 
@@ -170,10 +170,12 @@ class Explorer:
 
     def back(self):
         markers = self.markers
-        last_marker = markers.pop()
+        
+        if markers:
+            last_marker = markers.pop()
 
-        track = self.track
-        last_point = track.back()
+            track = self.track
+            last_point = track.back()
 
         # print('back()', last_marker, last_point, track.corner_count)
 
@@ -243,10 +245,6 @@ def is_completed(explorer):
 
 def explore(explorer, count):
     while not is_completed(explorer):
-        points = explorer.get_available_points()
-        if points:
-            explorer.go(points[0])
-
         if explorer.is_reached():
             if explorer.track.corner_count == count:
                 explorer.save_track()
@@ -263,6 +261,10 @@ def explore(explorer, count):
             while is_dead_end(explorer):
                 explorer.back()
 
+        points = explorer.get_available_points()
+        if points:
+            explorer.go(points[0])
+
     return explorer
 
 def fork(explorer, depth):
@@ -276,12 +278,10 @@ def fork(explorer, depth):
 
     result = []
     for child in child_explorers:
-        result.extend(fork(child, depth - 1))
+        if not child.is_reached():
+            result.extend(fork(child, depth - 1))
 
     return result
-
-def task(queue, explorer, count):
-    queue.put(explore(explorer, count))
 
 def search_routes(size_x, size_y, count):
     explorer = Explorer(size_x, size_y)
@@ -289,20 +289,19 @@ def search_routes(size_x, size_y, count):
     explorer.go(Point.get_point(0, 0))
 
     explorers = [explorer]
-    explorers.extend(fork(explorer, 3))
+    explorers.extend(fork(explorer, 7))
 
-    queue = Queue()
-    processes = [Process(group=None, target=task, args=(queue, ex, count)) for ex in explorers]
+    processes = [threading.Thread(group=None, target=explore, args=(ex, count)) for ex in explorers]
 
     for process in processes:
         process.start()
 
-    result = 0
     for process in processes:
         process.join()
-        ex = queue.get()
+    
+    result = 0
+    for ex in explorers:
         result = result + len(ex.snapshots)
-
     print(result)
 
 if __name__ == '__main__':
