@@ -113,6 +113,7 @@ class Explorer:
         self.track = Track()
         self.markers = []
         self.snapshots = []
+        self.go_count = 0
 
     def get_around_points(self, point):
         points = []
@@ -166,6 +167,8 @@ class Explorer:
         new_marker = {'point': point, 'choices': self.get_available_points_at(point)}
 
         self.markers.append(new_marker)
+
+        self.go_count = self.go_count + 1
 
 
     def back(self):
@@ -243,6 +246,7 @@ def is_completed(explorer):
 
     return False
 
+
 def explore(explorer, count):
     while not is_completed(explorer):
         if explorer.is_reached():
@@ -289,7 +293,7 @@ def search_routes(size_x, size_y, count):
     explorer.go(Point.get_point(0, 0))
 
     explorers = [explorer]
-    explorers.extend(fork(explorer, 7))
+    explorers.extend(fork(explorer, 4))
 
     processes = [threading.Thread(group=None, target=explore, args=(ex, count)) for ex in explorers]
 
@@ -301,6 +305,7 @@ def search_routes(size_x, size_y, count):
     
     result = 0
     for ex in explorers:
+        # print(len(ex.snapshots), ex.go_count)
         result = result + len(ex.snapshots)
     print(result)
 
