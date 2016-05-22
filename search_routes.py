@@ -1,4 +1,5 @@
 import pprint
+
 pp = pprint.PrettyPrinter(indent=2, width=100)
 
 class Point:
@@ -29,12 +30,19 @@ class Track:
         self.points= []
         self.corner_count = 0
 
-    def is_already_passed(self, target):
+    def is_already_passed(self, target_point):
+        if not target_point in self.points:
+            return False
+
+        last_point = self.points[-1]
+
         before = None
         for current in self.points:
             if before:
-                path = before.get_path(current)
-                if path == target:
+                if last_point == before and target_point == current:
+                    return True
+
+                if target_point == before and last_point == current:
                     return True
 
             before = current
@@ -51,7 +59,7 @@ class Track:
             if last_point.x != point.x and last_point.y != point.y:
                 return False
 
-            if self.is_already_passed(last_point.get_path(point)):
+            if self.is_already_passed(point):
                 return False
 
         return True
@@ -67,8 +75,8 @@ class Track:
             return b2.y != point.y
 
     def go(self, point):
-        if not self.can_go_to(point):
-            raise Exception('can not go to')
+        # if not self.can_go_to(point):
+        #     raise Exception('can not go to')
 
         if self.is_corner(point):
             self.corner_count = self.corner_count + 1
@@ -83,7 +91,14 @@ class Track:
         return last_point
 
     def dump(self):
-        return self.points.copy()
+        return self.points[:]
+
+    def clone(self):
+        clone = Track()
+        clone.points = list(self.points)
+        clone.corner_count = self.corner_count
+
+        return clone
 
     def __repr__(self):
         return str(self.__dict__)
@@ -97,19 +112,19 @@ class Explorer:
         self.markers = []
         self.snapshots = []
 
-    def get_around_points(self, base):
+    def get_around_points(self, point):
         points = []
-        if base.x + 1 < self.x:
-            points.append(Point.get_point(base.x + 1, base.y))
+        if point.x + 1 < self.x:
+            points.append(Point.get_point(point.x + 1, point.y))
 
-        if base.y + 1 < self.y:
-            points.append(Point.get_point(base.x, base.y + 1))
+        if point.y + 1 < self.y:
+            points.append(Point.get_point(point.x, point.y + 1))
 
-        if base.x - 1 >= 0:
-            points.append(Point.get_point(base.x - 1, base.y))
+        if point.x - 1 >= 0:
+            points.append(Point.get_point(point.x - 1, point.y))
 
-        if base.y - 1 >= 0:
-            points.append(Point.get_point(base.x, base.y - 1))
+        if point.y - 1 >= 0:
+            points.append(Point.get_point(point.x, point.y - 1))
 
         return points
 
@@ -128,9 +143,6 @@ class Explorer:
 
     def go(self, point):
         track = self.track
-
-        if not track.can_go_to(point):
-            raise Exception('can not go to point.\n' + str(self) + '\n' + str(point))
 
         if self.is_reached():
             raise Exception('already reach goal.')
@@ -168,6 +180,24 @@ class Explorer:
     def save_track(self):
         track = self.track
         self.snapshots.append(track.dump())
+
+    def fork(self):
+        if not self.markers:
+            return None
+
+        last_marker = self.markers[-1]
+        if not last_marker['choices']:
+            return None
+
+        clone = Explorer(self.x, self.y)
+        clone.track = self.track.clone()
+
+        start_point = last_marker['choices'][0]
+        last_marker['choices'].remove(start_point)
+
+        clone.go(start_point)
+
+        return clone
 
     def __repr__(self):
         return 'track: %(track)s\nmarkers: %(markers)s' % {'track': pp.pformat(self.track), 'markers': pp.pformat(self.markers)}
@@ -207,7 +237,8 @@ def is_completed(explorer):
 def explore(explorer, count):
     while not is_completed(explorer):
         points = explorer.get_available_points()
-        explorer.go(points[0])
+        if points:
+            explorer.go(points[0])
 
         if explorer.is_reached():
             if explorer.track.corner_count == count:
@@ -224,16 +255,36 @@ def explore(explorer, count):
             # print('is_dead_end()')
             while is_dead_end(explorer):
                 explorer.back()
-        
+
+def fork(explorer, depth):
+    child_explorers = []
+    for point in explorer.get_available_points()[:]:
+        child = explorer.fork()
+        explore(child, count)
+        child_explorers.append(child)
+
+    if depth == 1:
+       return child_explorers
+
+    for child in child_explorers:
+       child_explorers.extend(fork(child, depth - 1))
+
+    return child_explorers
+
 def search_routes(size_x, size_y, count):
     explorer = Explorer(size_x, size_y)
 
     explorer.go(Point.get_point(0, 0))
 
+    child_explorers = fork(explorer, 10)
+
     explore(explorer, count)
 
-    print(len(explorer.snapshots))
+    result = len(explorer.snapshots)
+    for ex in child_explorers:
+        result = result + len(ex.snapshots)
 
+    print(result)
 
 if __name__ == '__main__':
     SIZE_X = 5
@@ -245,3 +296,4 @@ if __name__ == '__main__':
             search_routes(SIZE_X, SIZE_Y, count)
     except EOFError:
         pass
+
