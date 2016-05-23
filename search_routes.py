@@ -241,8 +241,73 @@ def is_completed(explorer):
 
     return False
 
+def is_closed_y_line(explorer, target):
+    track = explorer.track
+    track_points = track.points
+
+    closed = set()
+    closed.add(target.x)
+
+    before = None
+    for current in track_points:
+        if before and before.x == current.x and (before.y > target.y or current.y > target.y):
+            closed.add(current.x)
+
+        before = current
+
+    if len(closed) == explorer.x:
+        print(track)
+
+    return closed.issuperset(set(range(explorer.x)))
+
+def is_closed_x_line(explorer, target):
+    track = explorer.track
+    track_points = track.points
+
+    closed = set()
+    closed.add(target.y)
+
+    before = None
+    for current in track_points:
+        if before and before.y == current.y and (before.x > target.x or current.x > target.x):
+            closed.add(current.y)
+
+        before = current
+
+    if len(closed) == explorer.y:
+        print(track)
+    return closed.issuperset(set(range(explorer.y)))
+
+def prune(explorer):
+    markers = explorer.markers
+    if not markers:
+        return
+
+    track = explorer.track
+    track_points = track.points
+    if not track_points:
+        return
+
+    marker = markers[-1]
+    last_point = track_points[-1]
+
+    prune_list = []
+    for point in explorer.get_available_points():
+        if last_point.y > point.y and is_closed_y_line(explorer, point):
+            prune_list.append(point)
+            continue
+
+        if last_point.x > point.x and is_closed_x_line(explorer, point):
+            prune_list.append(point)
+            continue
+
+    for point in prune_list:
+        marker['choices'].remove(point)
+
 def explore(explorer, count):
     while not is_completed(explorer):
+        prune(explorer)
+
         points = explorer.get_available_points()
         if points:
             explorer.go(points[0])
