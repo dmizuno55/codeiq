@@ -1,5 +1,5 @@
 import pprint
-from multiprocessing import Process, Queue
+import threading
 
 pp = pprint.PrettyPrinter(indent=2, width=100)
 
@@ -270,18 +270,10 @@ def fork(explorer, depth):
     for point in explorer.get_available_points()[:]:
         child = explorer.fork()
         child_explorers.append(child)
+        if depth < 1:
+            child_explorers.extend(fork(child, depth - 1))
 
-    if depth <= 1:
-       return child_explorers
-
-    result = []
-    for child in child_explorers:
-        result.extend(fork(child, depth - 1))
-
-    return result
-
-def task(queue, explorer, count):
-    queue.put(explore(explorer, count))
+    return child_explorers
 
 def search_routes(size_x, size_y, count):
     explorer = Explorer(size_x, size_y)
@@ -291,18 +283,18 @@ def search_routes(size_x, size_y, count):
     explorers = [explorer]
     explorers.extend(fork(explorer, 3))
 
-    queue = Queue()
-    processes = [Process(group=None, target=task, args=(queue, ex, count)) for ex in explorers]
+    processes = [threading.Thread(group=None, target=explore, args=(ex, count)) for ex in explorers]
 
     for process in processes:
         process.start()
 
-    result = 0
     for process in processes:
         process.join()
-        ex = queue.get()
-        result = result + len(ex.snapshots)
 
+    result = 0
+    for ex in explorers:
+        # print(len(ex.snapshots), ex.go_count)
+        result = result + len(ex.snapshots)
     print(result)
 
 if __name__ == '__main__':
